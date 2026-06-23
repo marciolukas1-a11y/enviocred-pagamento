@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ENVIO CRED – Painel Operacional</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap');
+:root {
+  --verde:#1a4d2e; --verde-medio:#2d7a4a; --verde-claro:#3a9e5f;
+  --dourado:#f5c518; --branco:#ffffff; --fundo:#0f1f14;
+  --card:#162a1c; --borda:#1e3d28; --cinza:#7aab8a;
+  --vermelho:#e53935; --laranja:#f5a623;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--fundo);color:var(--branco);font-family:'Space Grotesk',sans-serif;min-height:100vh;}
+
+/* LOGIN */
+#tela-login{position:fixed;inset:0;background:var(--fundo);display:flex;align-items:center;justify-content:center;z-index:999;}
+.login-box{background:var(--card);border:1px solid var(--borda);border-radius:20px;padding:40px 36px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+.login-logo{text-align:center;margin-bottom:28px;}
+.login-icon{width:64px;height:64px;background:linear-gradient(135deg,var(--verde-claro),var(--verde));border-radius:16px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:28px;}
+.login-title{font-size:22px;font-weight:700;letter-spacing:2px;}
+.login-title span{color:var(--dourado);}
+.login-sub{font-size:12px;color:var(--cinza);margin-top:4px;}
+.login-box label{font-size:11px;font-weight:600;color:var(--cinza);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;}
+.login-box input{width:100%;background:#0f1f14;border:1px solid var(--borda);border-radius:8px;padding:12px 14px;color:var(--branco);font-family:'Space Grotesk',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s;margin-bottom:14px;}
+.login-box input:focus{border-color:var(--dourado);}
+.btn-login{width:100%;background:linear-gradient(135deg,var(--dourado),#c9a000);color:var(--verde);border:none;border-radius:8px;padding:13px;font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;cursor:pointer;}
+.login-erro{color:var(--vermelho);font-size:12px;text-align:center;margin-top:8px;display:none;}
+
+/* HEADER */
+header{background:var(--verde);border-bottom:3px solid var(--dourado);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--dourado),#c9a000);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:var(--verde);}
+.logo-text{font-size:18px;font-weight:700;letter-spacing:2px;}
+.logo-text span{color:var(--dourado);}
+.header-right{display:flex;align-items:center;gap:12px;}
+.live-badge{background:rgba(245,197,24,0.2);border:1px solid rgba(245,197,24,0.5);color:var(--dourado);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;}
+.live-dot{width:6px;height:6px;background:var(--dourado);border-radius:50%;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(1.4)}}
+.btn-sair{background:transparent;border:1px solid rgba(255,255,255,0.3);color:var(--branco);padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Space Grotesk',sans-serif;}
+
+/* NAV */
+.nav-tabs{background:var(--verde);border-bottom:1px solid var(--borda);display:flex;padding:0 24px;overflow-x:auto;gap:2px;}
+.nav-tab{padding:11px 16px;font-size:13px;font-weight:500;color:rgba(255,255,255,0.6);cursor:pointer;border-bottom:3px solid transparent;transition:all 0.2s;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;}
+.nav-tab:hover{color:var(--branco);}
+.nav-tab.active{color:var(--dourado);border-bottom-color:var(--dourado);}
+
+/* MAIN */
+main{padding:24px;max-width:1400px;margin:0 auto;}
+.section{display:none;}
+.section.active{display:block;}
+.section-title{font-size:18px;font-weight:700;color:var(--branco);margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--borda);margin-left:12px;}
+
+/* CARDS KPI */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px;}
+.card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:20px;transition:border-color 0.2s;}
+.card:hover{border-color:var(--dourado);}
+.card-label{font-size:11px;font-weight:600;color:var(--cinza);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.card-value{font-size:26px;font-weight:700;font-family:'DM Mono',monospace;}
+.card-value.gold{color:var(--dourado);}
+.card-value.green{color:var(--verde-claro);}
+.card-delta{font-size:12px;margin-top:5px;color:var(--cinza);}
+.card-delta.up{color:#4caf50;}
+
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px;}
+@media(max-width:768px){.charts-row{grid-template-columns:1fr;}}
+.chart-card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:20px;}
+.chart-title{font-size:11px;font-weight:700;color:var(--cinza);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;}
+.chart-wrap{position:relative;height:220px;}
+
+/* TABLE */
+.table-card{background:var(--card);border:1px solid var(--borda);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.table-header{padding:14px 20px;border-bottom:1px solid var(--borda);display:flex;justify-content:space-between;align-items:center;}
+.table-title{font-size:11px;font-weight:700;color:var(--cinza);text-transform:uppercase;letter-spacing:1px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{padding:9px 20px;text-align:left;font-size:10px;font-weight:700;color:var(--cinza);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--borda);}
+td{padding:11px 20px;border-bottom:1px solid rgba(30,61,40,0.5);color:var(--branco);font-family:'DM Mono',monospace;font-size:12px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(245,197,24,0.03);}
+.badge{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;font-family:'Space Grotesk',sans-serif;}
+.badge-verde{background:rgba(76,175,80,0.15);color:#4caf50;}
+.badge-amarelo{background:rgba(245,166,35,0.15);color:var(--laranja);}
+.badge-vermelho{background:rgba(229,57,53,0.15);color:var(--vermelho);}
+.badge-azul{background:rgba(33,150,243,0.15);color:#64b5f6;}
+
+/* CALCULADORA */
+.calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px;}
+@media(max-width:768px){.calc-grid{grid-template-columns:1fr;}}
+.calc-card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:22px;}
+.calc-title{font-size:15px;font-weight:700;color:var(--branco);margin-bottom:18px;}
+.form-group{margin-bottom:14px;}
+label{display:block;font-size:11px;font-weight:600;color:var(--cinza);letter-spacing:0.5px;margin-bottom:5px;text-transform:uppercase;}
+input[type="number"],input[type="text"],select{width:100%;background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:10px 12px;color:var(--branco);font-family:'DM Mono',monospace;font-size:13px;outline:none;transition:border-color 0.2s;}
+input:focus,select:focus{border-color:var(--dourado);}
+.range-wrap{display:flex;align-items:center;gap:10px;}
+input[type="range"]{flex:1;-webkit-appearance:none;height:4px;background:var(--borda);border-radius:2px;outline:none;}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--dourado);border-radius:50%;cursor:pointer;}
+.range-val{font-family:'DM Mono',monospace;font-size:13px;color:var(--dourado);min-width:44px;text-align:right;}
+.btn-calc{width:100%;background:linear-gradient(135deg,var(--dourado),#c9a000);color:var(--verde);border:none;border-radius:8px;padding:12px;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:6px;}
+.alert-box{border-radius:8px;padding:10px 14px;font-size:12px;margin-top:10px;display:flex;align-items:center;gap:8px;}
+.alert-ok{background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);color:#4caf50;}
+.alert-warn{background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);color:var(--laranja);}
+.alert-err{background:rgba(229,57,53,0.1);border:1px solid rgba(229,57,53,0.3);color:var(--vermelho);}
+.result-box{background:rgba(245,197,24,0.06);border:1px solid rgba(245,197,24,0.2);border-radius:10px;padding:18px;margin-top:12px;}
+.result-row{display:flex;justify-content:space-between;margin-bottom:9px;font-size:13px;}
+.result-row span:first-child{color:var(--cinza);}
+.result-row span:last-child{color:var(--branco);font-family:'DM Mono',monospace;font-weight:600;}
+.result-total{border-top:1px solid rgba(245,197,24,0.2);padding-top:9px;margin-top:4px;}
+.result-total span:last-child{color:var(--dourado);font-size:18px;}
+.script-box{background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:14px;font-size:12px;color:#a8d8b0;margin-top:12px;white-space:pre-wrap;font-family:'DM Mono',monospace;line-height:1.6;}
+.btn-copy{background:rgba(245,197,24,0.1);border:1px solid rgba(245,197,24,0.3);color:var(--dourado);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Space Grotesk',sans-serif;margin-top:8px;}
+
+/* PROJETO ÁRVORE */
+.arvore-hero{background:linear-gradient(135deg,rgba(26,77,46,0.9),rgba(15,31,20,0.95));border:2px solid var(--dourado);border-radius:16px;padding:30px;margin-bottom:20px;text-align:center;}
+.arvore-emoji{font-size:56px;margin-bottom:12px;}
+.arvore-title{font-size:24px;font-weight:700;color:var(--dourado);margin-bottom:8px;}
+.arvore-sub{color:var(--cinza);font-size:14px;max-width:500px;margin:0 auto 20px;line-height:1.7;}
+.arvore-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:20px 0;}
+.arvore-stat{background:rgba(0,0,0,0.3);border:1px solid rgba(245,197,24,0.3);border-radius:10px;padding:14px;text-align:center;}
+.arvore-stat-val{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:var(--dourado);}
+.arvore-stat-label{font-size:10px;color:var(--cinza);margin-top:3px;text-transform:uppercase;}
+.btn-arvore{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--dourado),#c9a000);color:var(--verde);border:none;border-radius:8px;padding:12px 22px;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none;margin:4px;}
+
+/* SOCIO FORM */
+.socio-form{background:var(--card);border:1px solid var(--dourado);border-radius:12px;padding:22px;margin-bottom:20px;}
+.socio-form h3{color:var(--dourado);font-size:15px;font-weight:700;margin-bottom:16px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:600px){.form-row{grid-template-columns:1fr;}}
+.btn-socio{background:linear-gradient(135deg,var(--dourado),#c9a000);color:var(--verde);border:none;border-radius:8px;padding:11px 22px;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;}
+
+/* LINKS */
+.links-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:20px;}
+.link-card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px;transition:all 0.2s;text-decoration:none;color:inherit;}
+.link-card:hover{border-color:var(--dourado);transform:translateY(-2px);}
+.link-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.link-info{flex:1;}
+.link-name{font-size:13px;font-weight:700;margin-bottom:3px;}
+.link-url{font-size:10px;color:var(--cinza);font-family:'DM Mono',monospace;}
+
+/* WEBHOOK DOC */
+.doc-card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:20px;margin-bottom:14px;}
+.doc-title{font-size:13px;font-weight:700;color:var(--dourado);margin-bottom:10px;}
+.code-block{background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:14px 16px;font-family:'DM Mono',monospace;font-size:12px;color:#a8d8b0;overflow-x:auto;white-space:pre;margin:10px 0;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="tela-login">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-icon">💳</div>
+      <div class="login-title">ENVIO <span>CRED</span></div>
+      <div class="login-sub">Painel Operacional — Acesso Restrito</div>
+    </div>
+    <label>Usuário</label>
+    <input type="text" id="l-user" placeholder="seu usuário" autocomplete="off">
+    <label>Senha</label>
+    <input type="password" id="l-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
+    <button class="btn-login" onclick="login()">Entrar</button>
+    <div class="login-erro" id="login-erro">Usuário ou senha incorretos</div>
+  </div>
+</div>
+
+<!-- PAINEL -->
+<div id="painel" style="display:none;">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">EC</div>
+      <span class="logo-text">ENVIO <span>CRED</span></span>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><div class="live-dot"></div> AO VIVO</div>
+      <span id="hora-badge" style="font-size:12px;color:rgba(255,255,255,0.6);font-family:'DM Mono',monospace;"></span>
+      <button class="btn-sair" onclick="sair()">Sair</button>
+    </div>
+  </header>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="tab('dashboard',this)">📊 Dashboard</button>
+    <button class="nav-tab" onclick="tab('clientes',this)">👥 Clientes</button>
+    <button class="nav-tab" onclick="tab('calculadora',this)">🧮 Calculadora</button>
+    <button class="nav-tab" onclick="tab('arvore',this)">🌱 Projeto Árvore</button>
+    <button class="nav-tab" onclick="tab('afiliados',this)">🤝 Afiliados</button>
+    <button class="nav-tab" onclick="tab('links',this)">🔗 Links</button>
+    <button class="nav-tab" onclick="tab('webhook',this)">⚡ Webhook</button>
+  </div>
+
+  <main>
+
+    <!-- DASHBOARD -->
+    <div id="sec-dashboard" class="section active">
+      <div class="section-title">📊 Visão Geral</div>
+      <div class="cards-grid">
+        <div class="card">
+          <div class="card-label">💰 Caixa Atual</div>
+          <div class="card-value gold">R$400</div>
+          <div class="card-delta">🔴 Abaixo do mínimo (R$500)</div>
+        </div>
+        <div class="card">
+          <div class="card-label">📋 Contratos Ativos</div>
+          <div class="card-value green">2</div>
+          <div class="card-delta up">EC-003 e EC-004</div>
+        </div>
+        <div class="card">
+          <div class="card-label">📥 A Receber</div>
+          <div class="card-value gold">R$244,50</div>
+          <div class="card-delta">Mara + Rikelly</div>
+        </div>
+        <div class="card">
+          <div class="card-label">🌱 Sócios Árvore</div>
+          <div class="card-value green" id="kpi-socios">0</div>
+          <div class="card-delta">Captação em andamento</div>
+        </div>
+        <div class="card">
+          <div class="card-label">🎯 Leads Ativos</div>
+          <div class="card-value" style="color:var(--branco);">22</div>
+          <div class="card-delta">Funil Simone</div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">📈 Receita Mensal (R$)</div>
+          <div class="chart-wrap"><canvas id="chartReceita"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">🎯 Funil de Leads</div>
+          <div class="chart-wrap"><canvas id="chartFunil"></canvas></div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><span class="table-title">⚠️ Próximos Vencimentos</span></div>
+        <table>
+          <thead><tr><th>Contrato</th><th>Cliente</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>EC-003</td><td>Mara</td><td>R$172,50</td><td>02/07/2026</td><td><span class="badge badge-amarelo">⚠️ 9 dias</span></td></tr>
+            <tr><td>EC-004</td><td>Rikelly Yasmim</td><td>R$72,00</td><td>12/07/2026</td><td><span class="badge badge-verde">✅ 19 dias</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div id="sec-clientes" class="section">
+      <div class="section-title">👥 Clientes & Leads</div>
+      <div class="table-card">
+        <div class="table-header"><span class="table-title">Contratos Ativos</span></div>
+        <table>
+          <thead><tr><th>Contrato</th><th>Nome</th><th>Valor</th><th>Total</th><th>Venc.</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>EC-003</td><td>Mara</td><td>R$150,00</td><td>R$172,50</td><td>02/07/2026</td><td><span class="badge badge-amarelo">Em aberto</span></td></tr>
+            <tr><td>EC-004</td><td>Rikelly Yasmim</td><td>R$60,00</td><td>R$72,00</td><td>12/07/2026</td><td><span class="badge badge-amarelo">Em aberto</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-card">
+        <div class="table-header"><span class="table-title">Leads no Funil (Simone)</span></div>
+        <table>
+          <thead><tr><th>Nome</th><th>Telefone</th><th>Produto</th><th>Status</th></tr></thead>
+          <tbody id="tbody-leads">
+            <tr><td>Edvania Silva</td><td>558391887277</td><td>Super Sim / Árvore</td><td><span class="badge badge-azul">Em atendimento</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CALCULADORA -->
+    <div id="sec-calculadora" class="section">
+      <div class="section-title">🧮 Calculadora de Crédito v5.0</div>
+      <div class="calc-grid">
+        <div class="calc-card">
+          <div class="calc-title">Simular Operação</div>
+          <div class="form-group">
+            <label>Nome do Cliente</label>
+            <input type="text" id="c-nome" placeholder="Nome completo">
+          </div>
+          <div class="form-group">
+            <label>Valor (R$)</label>
+            <input type="number" id="c-valor" placeholder="0" min="10" max="500">
+          </div>
+          <div class="form-group">
+            <label>Taxa de Juros — <span id="taxa-label" style="color:var(--dourado)">20%</span></label>
+            <div class="range-wrap">
+              <input type="range" id="c-taxa" min="12" max="30" value="20" oninput="document.getElementById('taxa-label').textContent=this.value+'%';document.getElementById('taxa-show').textContent=this.value+'%'">
+              <span class="range-val" id="taxa-show">20%</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Prazo</label>
+            <select id="c-prazo">
+              <option value="15">15 dias</option>
+              <option value="20">20 dias</option>
+              <option value="30" selected>30 dias</option>
+              <option value="45">45 dias</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Nº do Contrato</label>
+            <input type="number" id="c-nc" value="1" min="1" max="10">
+          </div>
+          <button class="btn-calc" onclick="calcular()">Calcular Operação</button>
+        </div>
+        <div class="calc-card">
+          <div class="calc-title">Resultado</div>
+          <div id="calc-resultado" style="color:var(--cinza);font-size:13px;text-align:center;padding:40px 0;">Preencha os dados e clique em Calcular</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJETO ÁRVORE -->
+    <div id="sec-arvore" class="section">
+      <div class="section-title">🌱 Projeto Árvore</div>
+      <div class="arvore-hero">
+        <div class="arvore-emoji">🌳</div>
+        <div class="arvore-title">Programa Sócio-Parceiro</div>
+        <div class="arvore-sub">Invista de R$100 a R$500 e faça seu dinheiro trabalhar por você. Capital aplicado em FIIs com dividendos mensais.</div>
+        <div class="arvore-stats">
+          <div class="arvore-stat"><div class="arvore-stat-val">6%</div><div class="arvore-stat-label">Juros ao ano</div></div>
+          <div class="arvore-stat"><div class="arvore-stat-val">50%</div><div class="arvore-stat-label">Dividendos FIIs</div></div>
+          <div class="arvore-stat"><div class="arvore-stat-val">1 ano</div><div class="arvore-stat-label">Prazo</div></div>
+          <div class="arvore-stat"><div class="arvore-stat-val">R$500</div><div class="arvore-stat-label">Máximo</div></div>
+        </div>
+        <a href="https://marciolukas1-a11y.github.io/enviocred-pagamento/contrato-arvore.html" target="_blank" class="btn-arvore">📄 Ver Contrato</a>
+      </div>
+      <div class="socio-form">
+        <h3>➕ Cadastrar Novo Sócio-Parceiro</h3>
+        <div class="form-row">
+          <div class="form-group"><label>Nome Completo</label><input type="text" id="s-nome" placeholder="Nome do sócio"></div>
+          <div class="form-group"><label>Telefone (WhatsApp)</label><input type="text" id="s-tel" placeholder="(83) 99999-0000"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>CPF</label><input type="text" id="s-cpf" placeholder="000.000.000-00"></div>
+          <div class="form-group"><label>Chave PIX</label><input type="text" id="s-pix" placeholder="CPF, telefone ou e-mail"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Valor Investido (R$)</label><input type="number" id="s-valor" placeholder="100" min="100" max="500"></div>
+          <div class="form-group"><label>Data de Entrada</label><input type="text" id="s-data" placeholder="23/06/2026"></div>
+        </div>
+        <button class="btn-socio" onclick="cadastrarSocio()">✅ Cadastrar Sócio</button>
+      </div>
+      <div class="table-card">
+        <div class="table-header"><span class="table-title">Sócios Cadastrados</span></div>
+        <table>
+          <thead><tr><th>Nome</th><th>Valor</th><th>Entrada</th><th>Vencimento</th><th>Status</th></tr></thead>
+          <tbody id="tbody-socios"><tr><td colspan="5" style="text-align:center;color:var(--cinza);padding:20px;">Nenhum sócio cadastrado ainda</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- AFILIADOS -->
+    <div id="sec-afiliados" class="section">
+      <div class="section-title">🤝 Ganhos como Afiliado</div>
+      <div class="cards-grid">
+        <div class="card"><div class="card-label">Super Sim</div><div class="card-value gold">R$0</div><div class="card-delta">Cadastro ativo</div></div>
+        <div class="card"><div class="card-label">Bom Pra Crédito</div><div class="card-value gold">R$0</div><div class="card-delta">Cadastro pendente</div></div>
+        <div class="card"><div class="card-label">Creditas Partners</div><div class="card-value gold">R$0</div><div class="card-delta">Cadastro realizado</div></div>
+        <div class="card"><div class="card-label">FinanZero</div><div class="card-value gold">R$0</div><div class="card-delta">Cadastro pendente</div></div>
+      </div>
+      <div class="table-card">
+        <div class="table-header"><span class="table-title">Histórico de Comissões</span></div>
+        <table>
+          <thead><tr><th>Data</th><th>Plataforma</th><th>Cliente</th><th>Comissão</th></tr></thead>
+          <tbody><tr><td colspan="4" style="text-align:center;color:var(--cinza);padding:20px;">Nenhuma comissão registrada ainda</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LINKS -->
+    <div id="sec-links" class="section">
+      <div class="section-title">🔗 Central de Links</div>
+      <div class="links-grid">
+        <a href="https://marciolukas1-a11y.github.io/enviocred-pagamento/" target="_blank" class="link-card">
+          <div class="link-icon" style="background:rgba(245,197,24,0.1);">💳</div>
+          <div class="link-info"><div class="link-name">Página de Pagamento</div><div class="link-url">marciolukas1-a11y.github.io/enviocred-pagamento</div></div>
+        </a>
+        <a href="https://marciolukas1-a11y.github.io/enviocred-pagamento/contrato-arvore.html" target="_blank" class="link-card">
+          <div class="link-icon" style="background:rgba(58,158,95,0.1);">🌱</div>
+          <div class="link-info"><div class="link-name">Contrato Projeto Árvore</div><div class="link-url">...github.io/.../contrato-arvore.html</div></div>
+        </a>
+        <a href="https://share.zapia.com/hvb9nj21lk5exw5v0e77d3" target="_blank" class="link-card">
+          <div class="link-icon" style="background:rgba(100,181,246,0.1);">🧮</div>
+          <div class="link-info"><div class="link-name">Calculadora v5.0</div><div class="link-url">share.zapia.com/hvb9nj21lk5exw5v0e77d3</div></div>
+        </a>
+      </div>
+    </div>
+
+    <!-- WEBHOOK -->
+    <div id="sec-webhook" class="section">
+      <div class="section-title">⚡ Integração Webhook — Simone → Painel</div>
+      <div class="doc-card">
+        <div class="doc-title">📦 Registrar Lead</div>
+        <div class="code-block">{
+  "tipo": "lead",
+  "nome": "Nome do Cliente",
+  "telefone": "83999990000",
+  "produto": "Crédito Pessoal",
+  "valor": 300,
+  "origem": "WhatsApp (Simone)",
+  "status": "qualificado"
+}</div>
+      </div>
+      <div class="doc-card">
+        <div class="doc-title">✅ Registrar Transação Aprovada</div>
+        <div class="code-block">{
+  "tipo": "transacao",
+  "nome": "Nome do Cliente",
+  "produto": "Crédito Pessoal",
+  "valor": 300,
+  "taxa": 20,
+  "total": 360,
+  "status": "aprovado",
+  "data": "23/06/2026"
+}</div>
+      </div>
+      <div class="doc-card">
+        <div class="doc-title">🌱 Registrar Sócio Projeto Árvore</div>
+        <div class="code-block">{
+  "tipo": "socio_arvore",
+  "nome": "Nome do Sócio",
+  "telefone": "83999990000",
+  "cpf": "000.000.000-00",
+  "pix": "chave@pix.com",
+  "valor": 500,
+  "data": "23/06/2026"
+}</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// AUTH
+const USERS = {"enviocred":"arvore2024","marcio":"enviocred@2026"};
+function login(){
+  const u=document.getElementById('l-user').value.trim();
+  const p=document.getElementById('l-pass').value;
+  if(USERS[u]===p){
+    document.getElementById('tela-login').style.display='none';
+    document.getElementById('painel').style.display='block';
+    initCharts(); startClock(); renderSocios();
+  } else {
+    document.getElementById('login-erro').style.display='block';
+  }
+}
+function sair(){
+  document.getElementById('tela-login').style.display='flex';
+  document.getElementById('painel').style.display='none';
+}
+
+// TABS
+function tab(id,el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  el.classList.add('active');
+}
+
+// RELÓGIO
+function startClock(){
+  function tick(){
+    document.getElementById('hora-badge').textContent=
+      new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  tick(); setInterval(tick,1000);
+}
+
+// CHARTS
+function initCharts(){
+  const gc='rgba(255,255,255,0.6)', gg='rgba(30,61,40,0.5)';
+  new Chart(document.getElementById('chartReceita'),{
+    type:'bar',
+    data:{
+      labels:['Jan','Fev','Mar','Abr','Mai','Jun'],
+      datasets:[{label:'Receita (R$)',data:[0,0,0,20,30,72],backgroundColor:'rgba(245,197,24,0.7)',borderRadius:6}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:gc},grid:{color:gg}},y:{ticks:{color:gc},grid:{color:gg}}}}
+  });
+  new Chart(document.getElementById('chartFunil'),{
+    type:'doughnut',
+    data:{
+      labels:['Em atendimento','Frios','Descartados'],
+      datasets:[{data:[1,20,1],backgroundColor:['#f5c518','#2d7a4a','#e53935'],borderWidth:0}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'rgba(255,255,255,0.7)',font:{size:11}}}}}
+  });
+}
+
+// CALCULADORA v5.0
+const TABELA=[50,80,100,150,200,300,400,500];
+function calcular(){
+  const nome=document.getElementById('c-nome').value.trim()||'Cliente';
+  const valor=parseFloat(document.getElementById('c-valor').value)||0;
+  const taxa=parseFloat(document.getElementById('c-taxa').value)||20;
+  const prazo=parseInt(document.getElementById('c-prazo').value)||30;
+  const nc=parseInt(document.getElementById('c-nc').value)||1;
+  if(valor<=0){alert('Informe o valor.');return;}
+  const total=+(valor*(1+taxa/100)).toFixed(2);
+  const lucro=+(total-valor).toFixed(2);
+  const margem=+((lucro/total)*100).toFixed(1);
+  const vd=new Date(); vd.setDate(vd.getDate()+prazo);
+  const vencStr=vd.toLocaleDateString('pt-BR');
+  const erros=[],avisos=[];
+  if(taxa<12) erros.push('Taxa '+taxa+'% abaixo do mínimo de 12%. BLOQUEADA.');
+  if(lucro<15) erros.push('Lucro R$'+lucro.toFixed(2)+' abaixo do mínimo de R$15,00.');
+  const ref=TABELA[Math.min(nc-1,TABELA.length-1)];
+  if(valor>ref*1.15) avisos.push('Tabela sugere R$'+ref+' para o '+nc+'º contrato.');
+  const requerMarcio=valor>100;
+  const pNome=nome.split(' ')[0];
+  let alertHtml='',script='';
+  if(erros.length){
+    alertHtml=`<div class="alert-box alert-err">🚫 ${erros.join(' | ')}</div>`;
+    script=`Oi ${pNome}! 😊 Analisei aqui com cuidado, mas infelizmente não consegui liberar o crédito desta vez.\n\nIsso pode mudar no futuro! Quando sua situação melhorar, volte aqui. 💙`;
+  } else if(avisos.length||requerMarcio){
+    const msgs=[...avisos];
+    if(requerMarcio) msgs.push('Valor acima de R$100 — aguardar aprovação do Márcio.');
+    alertHtml=`<div class="alert-box alert-warn">⚠️ ${msgs.join(' | ')}</div>`;
+    script=`Oi ${pNome}! 😊 Já analisei aqui e tudo parece certo!\n\nSó preciso de uma confirmação final do setor. Em instantes te retorno! ⏳💙`;
+  } else {
+    alertHtml=`<div class="alert-box alert-ok">✅ Operação aprovada — pode prosseguir.</div>`;
+    script=`Oi ${pNome}! 🎉 Tudo certo por aqui!\n\nConsigo liberar *R$${valor.toFixed(2)}* pra você.\nO valor a devolver será *R$${total.toFixed(2)}* no dia *${vencStr}*.\n\nConfirma o PIX pra finalizar? 😊💙\n\n*Envio CRED* 💙`;
+  }
+  document.getElementById('calc-resultado').innerHTML=`
+    ${alertHtml}
+    <div class="result-box">
+      <div class="result-row"><span>Valor</span><span>R$${valor.toFixed(2)}</span></div>
+      <div class="result-row"><span>Taxa</span><span>${taxa}%</span></div>
+      <div class="result-row"><span>Juros</span><span>R$${lucro.toFixed(2)}</span></div>
+      <div class="result-row"><span>Margem</span><span>${margem}%</span></div>
+      <div class="result-row"><span>Prazo</span><span>${prazo} dias</span></div>
+      <div class="result-row result-total"><span>Total a Receber</span><span>R$${total.toFixed(2)}</span></div>
+      <div class="result-row"><span>Vencimento</span><span>${vencStr}</span></div>
+    </div>
+    <div style="margin-top:14px;">
+      <div style="font-size:11px;color:var(--cinza);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Script para a Simone</div>
+      <div class="script-box" id="script-text">${script}</div>
+      <button class="btn-copy" onclick="navigator.clipboard.writeText(document.getElementById('script-text').textContent).then(()=>{this.textContent='✅ Copiado!';setTimeout(()=>this.textContent='📋 Copiar Script',2000)})">📋 Copiar Script</button>
+    </div>`;
+}
+
+// PROJETO ÁRVORE — Sócios
+let socios=JSON.parse(localStorage.getItem('ec_socios')||'[]');
+function renderSocios(){
+  const tbody=document.getElementById('tbody-socios');
+  document.getElementById('kpi-socios').textContent=socios.length;
+  if(!socios.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--cinza);padding:20px;">Nenhum sócio cadastrado ainda</td></tr>';return;}
+  tbody.innerHTML=socios.map(s=>`<tr><td>${s.nome}</td><td>R$${parseFloat(s.valor).toFixed(2)}</td><td>${s.data}</td><td>${s.venc}</td><td><span class="badge badge-verde">Ativo</span></td></tr>`).join('');
+}
+function cadastrarSocio(){
+  const nome=document.getElementById('s-nome').value.trim();
+  const valor=document.getElementById('s-valor').value;
+  const data=document.getElementById('s-data').value||new Date().toLocaleDateString('pt-BR');
+  if(!nome||!valor){alert('Informe nome e valor.');return;}
+  const d=new Date(); d.setFullYear(d.getFullYear()+1);
+  socios.push({nome,tel:document.getElementById('s-tel').value,cpf:document.getElementById('s-cpf').value,pix:document.getElementById('s-pix').value,valor,data,venc:d.toLocaleDateString('pt-BR')});
+  localStorage.setItem('ec_socios',JSON.stringify(socios));
+  renderSocios();
+  ['s-nome','s-tel','s-cpf','s-pix','s-valor','s-data'].forEach(id=>document.getElementById(id).value='');
+  alert('Sócio cadastrado com sucesso! ✅');
+}
+</script>
+</body>
+</html>
