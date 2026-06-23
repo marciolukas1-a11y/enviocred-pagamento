@@ -633,7 +633,7 @@ function cadastrarSocio(){
 }
 
 // ── Integração Railway em tempo real ─────────────────────────
-let railwayUrl = localStorage.getItem('ec_railway_url') || '';
+let railwayUrl = localStorage.getItem('ec_railway_url') || 'https://eva-server-production-3c09.up.railway.app';
 let syncInterval = null;
 
 function iniciarSync() {
@@ -689,7 +689,7 @@ function testarConexao() {
 const _initCharts = initCharts;
 initCharts = function() {
   _initCharts();
-  const saved = localStorage.getItem('ec_railway_url');
+  const saved = localStorage.getItem('ec_railway_url') || 'https://eva-server-production-3c09.up.railway.app';
   if(saved) { railwayUrl = saved; const el=document.getElementById('railway-url'); if(el) el.value=saved; iniciarSync(); }
 };
 </script>
