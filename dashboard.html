@@ -440,7 +440,17 @@ Após o pagamento, me manda o comprovante aqui! 😊💙</div>
 
     <!-- WEBHOOK -->
     <div id="sec-webhook" class="section">
-      <div class="section-title">⚡ Integração Webhook — Simone → Painel</div>
+      <div class="section-title">⚡ Integração Simone → Painel</div>
+
+      <div class="doc-card" style="border-color:rgba(245,197,24,0.4);">
+        <div class="doc-title">🔌 URL do Servidor (Railway)</div>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+          <input type="text" id="railway-url" placeholder="https://seu-app.up.railway.app" style="flex:1;" 
+            oninput="localStorage.setItem('ec_railway_url',this.value)">
+          <button class="btn-copy" onclick="testarConexao()" style="white-space:nowrap;">🔍 Testar</button>
+        </div>
+        <div id="conexao-status" style="margin-top:8px;font-size:12px;color:var(--cinza);"></div>
+      </div>
       <div class="doc-card">
         <div class="doc-title">📦 Registrar Lead</div>
         <div class="code-block">{
@@ -612,9 +622,76 @@ function cadastrarSocio(){
   socios.push({nome,tel:document.getElementById('s-tel').value,cpf:document.getElementById('s-cpf').value,pix:document.getElementById('s-pix').value,valor,data,venc:d.toLocaleDateString('pt-BR')});
   localStorage.setItem('ec_socios',JSON.stringify(socios));
   renderSocios();
+  // Também registra no servidor da Simone se conectado
+  if(railwayUrl){
+    fetch(railwayUrl+'/dashboard/socio',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({nome,telefone:document.getElementById('s-tel').value,cpf:document.getElementById('s-cpf').value,pix:document.getElementById('s-pix').value,valor,data})
+    }).catch(()=>{});
+  }
   ['s-nome','s-tel','s-cpf','s-pix','s-valor','s-data'].forEach(id=>document.getElementById(id).value='');
   alert('Sócio cadastrado com sucesso! ✅');
 }
+
+// ── Integração Railway em tempo real ─────────────────────────
+let railwayUrl = localStorage.getItem('ec_railway_url') || '';
+let syncInterval = null;
+
+function iniciarSync() {
+  if (syncInterval) clearInterval(syncInterval);
+  if (!railwayUrl) return;
+  sincronizar();
+  syncInterval = setInterval(sincronizar, 30000);
+}
+
+function sincronizar() {
+  if (!railwayUrl) return;
+  fetch(railwayUrl + '/dashboard/dados')
+    .then(r => r.json())
+    .then(data => {
+      if (data.leads && data.leads.length) {
+        const tbody = document.getElementById('tbody-leads');
+        tbody.innerHTML = data.leads.map(l => `<tr>
+          <td>${l.nome||'-'}</td><td>${l.telefone||'-'}</td>
+          <td>${l.produto||'-'}</td>
+          <td><span class="badge ${statusBadge(l.status)}">${l.status||'novo'}</span></td>
+        </tr>`).join('');
+      }
+      if (data.totais && data.totais.socios_arvore) {
+        document.getElementById('kpi-socios').textContent = data.totais.socios_arvore;
+      }
+      const el = document.getElementById('conexao-status');
+      if(el) el.innerHTML = '<span style="color:#4caf50;">✅ Conectado — sync: '+new Date().toLocaleTimeString('pt-BR')+'</span>';
+    })
+    .catch(() => {
+      const el = document.getElementById('conexao-status');
+      if(el) el.innerHTML = '<span style="color:var(--vermelho);">❌ Servidor offline ou URL incorreta</span>';
+    });
+}
+
+function statusBadge(s) {
+  if(!s) return 'badge-azul';
+  if(s==='aprovado') return 'badge-verde';
+  if(s==='aguarda_marcio') return 'badge-amarelo';
+  if(s==='recusado') return 'badge-vermelho';
+  return 'badge-azul';
+}
+
+function testarConexao() {
+  railwayUrl = document.getElementById('railway-url').value.trim().replace(/\/$/,'');
+  localStorage.setItem('ec_railway_url', railwayUrl);
+  const el = document.getElementById('conexao-status');
+  if(el) el.innerHTML = '<span style="color:var(--cinza);">⏳ Testando...</span>';
+  sincronizar();
+  iniciarSync();
+}
+
+// Restaurar URL salva e iniciar sync ao fazer login
+const _initCharts = initCharts;
+initCharts = function() {
+  _initCharts();
+  const saved = localStorage.getItem('ec_railway_url');
+  if(saved) { railwayUrl = saved; const el=document.getElementById('railway-url'); if(el) el.value=saved; iniciarSync(); }
+};
 </script>
 </body>
 </html>
