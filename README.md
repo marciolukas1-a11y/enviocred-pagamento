@@ -1,2 +1,3 @@
-# enviocred-pagamento
-Envio CRED - Pagamento Confirmado
+# Envio CRED
+
+Painel atualizado em 23/06/2026.
