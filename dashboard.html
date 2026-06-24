@@ -678,12 +678,14 @@ function calcular(){
 }
 
 // PROJETO ÁRVORE — Sócios
-let socios=JSON.parse(localStorage.getItem('ec_socios')||'[]');
+let socios=[
+  {nome:'Márcio Ribeiro',tel:'83991144899',cpf:'079.642.707-02',pix:'83991144899',valor:'111.56',data:'24/06/2026',venc:'24/06/2027',tipo:'Fundador'}
+];
 function renderSocios(){
   const tbody=document.getElementById('tbody-socios');
   document.getElementById('kpi-socios').textContent=socios.length;
   if(!socios.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--cinza);padding:20px;">Nenhum sócio cadastrado ainda</td></tr>';return;}
-  tbody.innerHTML=socios.map(s=>`<tr><td>${s.nome}</td><td>R$${parseFloat(s.valor).toFixed(2)}</td><td>${s.data}</td><td>${s.venc}</td><td><span class="badge badge-verde">Ativo</span></td></tr>`).join('');
+  tbody.innerHTML=socios.map(s=>`<tr><td>${s.nome}</td><td>R$${parseFloat(s.valor).toFixed(2)}</td><td>${s.data}</td><td>${s.venc}</td><td><span class="badge badge-verde">${s.tipo||'Ativo'}</span></td></tr>`).join('');
 }
 function cadastrarSocio(){
   const nome=document.getElementById('s-nome').value.trim();
