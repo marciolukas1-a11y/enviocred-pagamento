@@ -189,6 +189,7 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
     <button class="nav-tab" onclick="tab('afiliados',this)">🤝 Afiliados</button>
     <button class="nav-tab" onclick="tab('links',this)">🔗 Links</button>
     <button class="nav-tab" onclick="tab('banco',this)">🏦 Banco</button>
+    <button class="nav-tab" onclick="tab('investimentos',this)">📈 Investimentos</button>
     <button class="nav-tab" onclick="tab('webhook',this)">⚡ Webhook</button>
   </div>
 
@@ -435,6 +436,77 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
 
 Após o pagamento, me manda o comprovante aqui! 😊💙</div>
         <button class="btn-copy" onclick="navigator.clipboard.writeText(document.getElementById('msg-pix').textContent).then(()=>{this.textContent='✅ Copiado!';setTimeout(()=>this.textContent='📋 Copiar Mensagem',2000)})">📋 Copiar Mensagem</button>
+      </div>
+    </div>
+
+    <!-- INVESTIMENTOS -->
+    <div id="sec-investimentos" class="section">
+      <div class="section-title">📈 Carteira de Investimentos — Envio CRED</div>
+
+      <div class="cards-grid" style="margin-bottom:24px;">
+        <div class="card" style="border-color:var(--dourado);">
+          <div class="card-label">💰 Patrimônio Total</div>
+          <div class="card-value gold" id="inv-patrimonio">R$ 0,00</div>
+          <div class="card-delta" id="inv-patrimonio-delta">Aguardando aportes</div>
+        </div>
+        <div class="card">
+          <div class="card-label">💵 Dividendos/Mês</div>
+          <div class="card-value" style="color:#4caf50;" id="inv-dividendos-mes">R$ 0,00</div>
+          <div class="card-delta">Estimativa mensal</div>
+        </div>
+        <div class="card">
+          <div class="card-label">📅 Próximo Pagamento</div>
+          <div class="card-value" style="color:var(--branco);font-size:18px;" id="inv-prox-pgto">—</div>
+          <div class="card-delta" id="inv-prox-pgto-delta">—</div>
+        </div>
+        <div class="card">
+          <div class="card-label">📊 DY Médio Mensal</div>
+          <div class="card-value" style="color:#4caf50;" id="inv-dy-medio">0,00%</div>
+          <div class="card-delta">Dividend Yield</div>
+        </div>
+      </div>
+
+      <div class="doc-card" style="margin-bottom:24px;">
+        <div class="doc-title">📋 Ativos na Carteira</div>
+        <div style="overflow-x:auto;">
+          <table id="inv-tabela" style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--borda);color:rgba(255,255,255,0.5);">
+                <th style="padding:10px 8px;text-align:left;">Ticker</th>
+                <th style="padding:10px 8px;text-align:left;">Nome</th>
+                <th style="padding:10px 8px;text-align:right;">Cotas</th>
+                <th style="padding:10px 8px;text-align:right;">P. Médio</th>
+                <th style="padding:10px 8px;text-align:right;">Cotação Atual</th>
+                <th style="padding:10px 8px;text-align:right;">Total</th>
+                <th style="padding:10px 8px;text-align:right;">Div./Cota</th>
+                <th style="padding:10px 8px;text-align:right;">Div./Mês</th>
+                <th style="padding:10px 8px;text-align:right;">DY</th>
+                <th style="padding:10px 8px;text-align:center;">Data COM</th>
+                <th style="padding:10px 8px;text-align:center;">Pagamento</th>
+              </tr>
+            </thead>
+            <tbody id="inv-tabela-body">
+              <tr id="inv-vazio">
+                <td colspan="11" style="padding:24px;text-align:center;color:rgba(255,255,255,0.3);">Nenhum ativo cadastrado ainda</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="doc-card" style="margin-bottom:24px;">
+        <div class="doc-title">💵 Histórico de Dividendos Recebidos</div>
+        <div id="inv-historico" style="color:rgba(255,255,255,0.4);padding:16px;text-align:center;">
+          Nenhum dividendo registrado ainda
+        </div>
+      </div>
+
+      <div class="doc-card">
+        <div class="doc-title">📊 Evolução do Patrimônio</div>
+        <div id="inv-chart-vazio" style="color:rgba(255,255,255,0.3);text-align:center;padding:40px;">
+          Gráfico disponível após o primeiro aporte
+        </div>
+        <canvas id="inv-chart" style="max-height:260px;display:none;"></canvas>
       </div>
     </div>
 
@@ -691,7 +763,93 @@ initCharts = function() {
   _initCharts();
   const saved = localStorage.getItem('ec_railway_url') || 'https://eva-server-production-3c09.up.railway.app';
   if(saved) { railwayUrl = saved; const el=document.getElementById('railway-url'); if(el) el.value=saved; iniciarSync(); }
+  renderInvestimentos();
 };
+
+// =============================================
+// CARTEIRA DE INVESTIMENTOS — ENVIO CRED
+// =============================================
+
+// Dados da carteira — atualizados pela Gaia
+const CARTEIRA = JSON.parse(localStorage.getItem('ec_carteira') || '[]');
+
+// Salvar carteira
+function salvarCarteira() {
+  localStorage.setItem('ec_carteira', JSON.stringify(CARTEIRA));
+}
+
+function fmtBRL(v) {
+  return 'R$ ' + v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function renderInvestimentos() {
+  if (!CARTEIRA.length) return;
+
+  const tbody = document.getElementById('inv-tabela-body');
+  const vazio = document.getElementById('inv-vazio');
+  if (vazio) vazio.remove();
+
+  let totalPatrimonio = 0;
+  let totalDivMes = 0;
+  let proxPgto = null;
+  let proxPgtoTicker = '';
+
+  tbody.innerHTML = '';
+  CARTEIRA.forEach(a => {
+    const total = a.cotas * a.cotacao;
+    const divMes = a.cotas * a.div_cota;
+    const dy = a.cotacao > 0 ? ((a.div_cota / a.cotacao) * 100).toFixed(2) : '0.00';
+    totalPatrimonio += total;
+    totalDivMes += divMes;
+
+    // Próximo pagamento
+    if (a.data_pgto) {
+      const dp = new Date(a.data_pgto);
+      if (!proxPgto || dp < proxPgto) { proxPgto = dp; proxPgtoTicker = a.ticker; }
+    }
+
+    const var_pct = a.preco_medio > 0 ? (((a.cotacao - a.preco_medio) / a.preco_medio) * 100).toFixed(2) : '0.00';
+    const cor_var = parseFloat(var_pct) >= 0 ? '#4caf50' : '#f44336';
+
+    tbody.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+      <td style="padding:10px 8px;font-weight:700;color:var(--dourado);">${a.ticker}</td>
+      <td style="padding:10px 8px;color:rgba(255,255,255,0.7);font-size:12px;">${a.nome}</td>
+      <td style="padding:10px 8px;text-align:right;">${a.cotas}</td>
+      <td style="padding:10px 8px;text-align:right;">${fmtBRL(a.preco_medio)}</td>
+      <td style="padding:10px 8px;text-align:right;">${fmtBRL(a.cotacao)} <span style="font-size:11px;color:${cor_var}">(${var_pct}%)</span></td>
+      <td style="padding:10px 8px;text-align:right;font-weight:600;">${fmtBRL(total)}</td>
+      <td style="padding:10px 8px;text-align:right;color:#4caf50;">${fmtBRL(a.div_cota)}</td>
+      <td style="padding:10px 8px;text-align:right;color:#4caf50;font-weight:600;">${fmtBRL(divMes)}</td>
+      <td style="padding:10px 8px;text-align:right;color:#4caf50;">${dy}%</td>
+      <td style="padding:10px 8px;text-align:center;font-size:12px;">${a.data_com || '—'}</td>
+      <td style="padding:10px 8px;text-align:center;font-size:12px;color:var(--dourado);">${a.data_pgto || '—'}</td>
+    </tr>`;
+  });
+
+  // Cards de resumo
+  document.getElementById('inv-patrimonio').textContent = fmtBRL(totalPatrimonio);
+  document.getElementById('inv-patrimonio-delta').textContent = CARTEIRA.length + ' ativo(s) na carteira';
+  document.getElementById('inv-dividendos-mes').textContent = fmtBRL(totalDivMes);
+  if (proxPgto) {
+    document.getElementById('inv-prox-pgto').textContent = proxPgto.toLocaleDateString('pt-BR');
+    document.getElementById('inv-prox-pgto-delta').textContent = proxPgtoTicker;
+  }
+  const dyMedio = totalPatrimonio > 0 ? ((totalDivMes / totalPatrimonio) * 100).toFixed(2) : '0.00';
+  document.getElementById('inv-dy-medio').textContent = dyMedio + '%';
+
+  // Histórico de dividendos
+  const hist = JSON.parse(localStorage.getItem('ec_div_historico') || '[]');
+  const hdiv = document.getElementById('inv-historico');
+  if (hist.length) {
+    hdiv.innerHTML = hist.slice().reverse().map(h =>
+      `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span style="color:var(--dourado);">${h.ticker}</span>
+        <span style="color:rgba(255,255,255,0.6);font-size:12px;">${h.data}</span>
+        <span style="color:#4caf50;font-weight:600;">${fmtBRL(h.valor)}</span>
+      </div>`
+    ).join('');
+  }
+}
 </script>
 </body>
 </html>
