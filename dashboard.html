@@ -771,12 +771,22 @@ initCharts = function() {
 // =============================================
 
 // Dados da carteira — atualizados pela Gaia
-const CARTEIRA = JSON.parse(localStorage.getItem('ec_carteira') || '[]');
+// Última atualização: 24/06/2026
+const CARTEIRA = [
+  {
+    ticker: 'KNCR11',
+    nome: 'Kinea Rendimentos Imobiliários',
+    cotas: 1,
+    preco_medio: 111.56,
+    cotacao: 107.28,
+    div_cota: 1.10,
+    data_com: '01/07/2026',
+    data_pgto: '10/07/2026'
+  }
+];
 
-// Salvar carteira
-function salvarCarteira() {
-  localStorage.setItem('ec_carteira', JSON.stringify(CARTEIRA));
-}
+// Salvar carteira (não utilizado — dados mantidos pela Gaia no código)
+function salvarCarteira() {}
 
 function fmtBRL(v) {
   return 'R$ ' + v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
