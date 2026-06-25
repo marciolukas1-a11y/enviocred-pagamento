@@ -1029,31 +1029,47 @@ async function atualizarCotacoes() {
   const badge = document.getElementById('inv-cotacao-badge');
   if (badge) { badge.textContent = '⏳ Atualizando...'; badge.style.color = 'var(--dourado)'; }
 
+  const url = `${API_COTACOES}?tickers=${tickers}&_t=${Date.now()}`;
+  
   try {
-    const res = await fetch(`${API_COTACOES}?tickers=${tickers}`, {cache: 'no-cache'});
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    if (data.cotacoes) {
-      _cotacoesCache = data.cotacoes;
-      CARTEIRA.forEach(a => {
-        const c = data.cotacoes[a.ticker];
-        if (c && c.preco) {
-          a.cotacao = c.preco;
-          a._variacao_pct = c.variacao_pct;
-          a._mercado = c.mercado;
-          a._atualizado = c.atualizado;
-        }
-      });
-      if (badge) {
-        const hora = data.gerado_em ? data.gerado_em.split(' ')[1] : '--:--';
-        badge.textContent = `✅ Ao vivo · ${hora}`;
-        badge.style.color = '#4caf50';
-      }
-      renderInvestimentos();
-    }
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.timeout = 10000;
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.cotacoes) {
+              _cotacoesCache = data.cotacoes;
+              CARTEIRA.forEach(a => {
+                const c = data.cotacoes[a.ticker];
+                if (c && c.preco) {
+                  a.cotacao = c.preco;
+                  a._variacao_pct = c.variacao_pct;
+                  a._mercado = c.mercado;
+                  a._atualizado = c.atualizado;
+                }
+              });
+              if (badge) {
+                const hora = data.gerado_em ? data.gerado_em.split(' ')[1] : '--:--';
+                badge.textContent = `✅ Ao vivo · ${hora}`;
+                badge.style.color = '#4caf50';
+              }
+              renderInvestimentos();
+            }
+            resolve();
+          } catch(e) { reject(e); }
+        } else { reject(new Error('HTTP ' + xhr.status)); }
+      };
+      xhr.onerror = () => reject(new Error('Rede'));
+      xhr.ontimeout = () => reject(new Error('Timeout'));
+      xhr.send();
+    });
   } catch(e) {
-    console.error('[cotacoes]', e);
-    if (badge) { badge.textContent = '⚠️ Sem conexão'; badge.style.color = '#f44336'; }
+    console.error('[cotacoes]', e.message);
+    if (badge) { badge.textContent = '⚠️ ' + e.message; badge.style.color = '#f44336'; }
   }
   _cotacoesAtualizando = false;
 }
