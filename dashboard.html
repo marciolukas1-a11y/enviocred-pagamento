@@ -444,7 +444,7 @@ Após o pagamento, me manda o comprovante aqui! 😊💙</div>
     <div id="sec-investimentos" class="section">
       <div class="section-title">📈 Carteira de Investimentos — Envio CRED
         <span id="inv-cotacao-badge" style="font-size:12px;font-weight:400;margin-left:12px;color:var(--cinza);">⏳ Carregando cotações...</span>
-        <button onclick="atualizarCotacoes()" style="margin-left:12px;background:rgba(245,197,24,0.1);border:1px solid rgba(245,197,24,0.3);color:var(--dourado);padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🔄 Atualizar</button>
+        <button onclick="atualizarCotacoes(true)" style="margin-left:12px;background:rgba(245,197,24,0.1);border:1px solid rgba(245,197,24,0.3);color:var(--dourado);padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🔄 Atualizar</button>
       </div>
 
       <div class="cards-grid" style="margin-bottom:24px;">
@@ -1020,9 +1020,9 @@ const API_COTACOES = 'https://eva-server-production-3c09.up.railway.app/cotacoes
 let _cotacoesCache = {};
 let _cotacoesAtualizando = false;
 
-async function atualizarCotacoes() {
+async function atualizarCotacoes(forcar) {
   if (!CARTEIRA.length) return;
-  if (_cotacoesAtualizando) return;
+  if (_cotacoesAtualizando && !forcar) return;
   _cotacoesAtualizando = true;
 
   const tickers = CARTEIRA.map(a => a.ticker).join(',');
@@ -1032,41 +1032,27 @@ async function atualizarCotacoes() {
   const url = `${API_COTACOES}?tickers=${tickers}&_t=${Date.now()}`;
   
   try {
-    await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.setRequestHeader('Accept', 'application/json');
-      xhr.timeout = 10000;
-      xhr.onload = function() {
-        if (xhr.status === 200) {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            if (data.cotacoes) {
-              _cotacoesCache = data.cotacoes;
-              CARTEIRA.forEach(a => {
-                const c = data.cotacoes[a.ticker];
-                if (c && c.preco) {
-                  a.cotacao = c.preco;
-                  a._variacao_pct = c.variacao_pct;
-                  a._mercado = c.mercado;
-                  a._atualizado = c.atualizado;
-                }
-              });
-              if (badge) {
-                const hora = data.gerado_em ? data.gerado_em.split(' ')[1] : '--:--';
-                badge.textContent = `✅ Ao vivo · ${hora}`;
-                badge.style.color = '#4caf50';
-              }
-              renderInvestimentos();
-            }
-            resolve();
-          } catch(e) { reject(e); }
-        } else { reject(new Error('HTTP ' + xhr.status)); }
-      };
-      xhr.onerror = () => reject(new Error('Rede'));
-      xhr.ontimeout = () => reject(new Error('Timeout'));
-      xhr.send();
-    });
+    const res = await fetch(url, {mode:'cors', cache:'no-store'});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data.cotacoes) {
+      _cotacoesCache = data.cotacoes;
+      CARTEIRA.forEach(a => {
+        const c = data.cotacoes[a.ticker];
+        if (c && c.preco) {
+          a.cotacao = c.preco;
+          a._variacao_pct = c.variacao_pct;
+          a._mercado = c.mercado;
+          a._atualizado = c.atualizado;
+        }
+      });
+      if (badge) {
+        const hora = data.gerado_em ? data.gerado_em.split(' ')[1] : '--:--';
+        badge.textContent = `✅ Ao vivo · ${hora}`;
+        badge.style.color = '#4caf50';
+      }
+      renderInvestimentos();
+    }
   } catch(e) {
     console.error('[cotacoes]', e.message);
     if (badge) { badge.textContent = '⚠️ ' + e.message; badge.style.color = '#f44336'; }
