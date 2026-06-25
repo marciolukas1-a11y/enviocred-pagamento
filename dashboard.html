@@ -190,7 +190,8 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
     <button class="nav-tab" onclick="tab('links',this)">🔗 Links</button>
     <button class="nav-tab" onclick="tab('banco',this)">🏦 Banco</button>
     <button class="nav-tab" onclick="tab('investimentos',this)">📈 Investimentos</button>
-    <button class="nav-tab" onclick="tab('webhook',this)">⚡ Webhook</button>
+    <button class="nav-tab" onclick="tab('supersim',this)">⚡ Super Sim</button>
+    <button class="nav-tab" onclick="tab('webhook',this)">🔌 Webhook</button>
   </div>
 
   <main>
@@ -510,6 +511,82 @@ Após o pagamento, me manda o comprovante aqui! 😊💙</div>
       </div>
     </div>
 
+    <!-- SUPER SIM -->
+    <div id="sec-supersim" class="section">
+      <div class="section-title">⚡ Clientes Super Sim</div>
+
+      <!-- KPIs -->
+      <div class="cards-grid" style="margin-bottom:20px;">
+        <div class="card">
+          <div class="card-label">📋 Total Indicados</div>
+          <div class="card-value gold" id="ss-total">0</div>
+          <div class="card-delta">Clientes enviados</div>
+        </div>
+        <div class="card">
+          <div class="card-label">⏳ Aguardando Pgto</div>
+          <div class="card-value" style="color:var(--vermelho);" id="ss-pendente">0</div>
+          <div class="card-delta">Comissão a receber</div>
+        </div>
+        <div class="card">
+          <div class="card-label">💰 Total a Receber</div>
+          <div class="card-value gold" id="ss-valor-total">R$ 0,00</div>
+          <div class="card-delta">R$50 por indicação</div>
+        </div>
+        <div class="card">
+          <div class="card-label">✅ Comissões Pagas</div>
+          <div class="card-value" style="color:#4caf50;" id="ss-pagas">0</div>
+          <div class="card-delta">Confirmadas</div>
+        </div>
+      </div>
+
+      <!-- Formulário novo cliente -->
+      <div class="socio-form" style="margin-bottom:20px;">
+        <h3>➕ Adicionar Cliente Super Sim</h3>
+        <div class="form-row">
+          <div class="form-group"><label>Nome Completo</label><input type="text" id="ss-nome" placeholder="Ex: Luciene Gomes da Silva"></div>
+          <div class="form-group"><label>Telefone (WhatsApp)</label><input type="text" id="ss-tel" placeholder="(83) 99999-0000"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>CPF</label><input type="text" id="ss-cpf" placeholder="000.000.000-00"></div>
+          <div class="form-group"><label>E-mail</label><input type="text" id="ss-email" placeholder="cliente@email.com"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Valor Solicitado (R$)</label><input type="number" id="ss-valor" placeholder="500" min="100"></div>
+          <div class="form-group"><label>Data de Indicação</label><input type="text" id="ss-data" placeholder="25/06/2026"></div>
+        </div>
+        <button class="btn-socio" onclick="adicionarClienteSS()">✅ Cadastrar Cliente</button>
+      </div>
+
+      <!-- Tabela de clientes -->
+      <div class="table-card">
+        <div class="table-header">
+          <span class="table-title">📋 Clientes Indicados — Comissão R$50/lead</span>
+          <button class="btn-copy" onclick="exportarSS()">📥 Exportar</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nome</th>
+                <th>WhatsApp</th>
+                <th>CPF</th>
+                <th>E-mail</th>
+                <th>Valor Pedido</th>
+                <th>Data</th>
+                <th>Comissão</th>
+                <th>Tempo</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-supersim">
+              <tr><td colspan="10" style="text-align:center;color:var(--cinza);padding:24px;">Nenhum cliente cadastrado ainda</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- WEBHOOK -->
     <div id="sec-webhook" class="section">
       <div class="section-title">⚡ Integração Simone → Painel</div>
@@ -769,8 +846,148 @@ initCharts = function() {
 };
 
 // =============================================
-// CARTEIRA DE INVESTIMENTOS — ENVIO CRED
+// SUPER SIM — Clientes indicados
 // =============================================
+
+// Banco de dados localStorage + seed inicial (Luciene)
+function carregarClientesSS() {
+  const salvo = localStorage.getItem('ec_supersim');
+  if (salvo) return JSON.parse(salvo);
+  // Seed: Luciene — primeira cliente
+  const seed = [{
+    id: 1,
+    nome: 'Luciene Gomes da Silva',
+    tel: '(83) 8689-2603',
+    cpf: '069.024.684-60',
+    email: '—',
+    valor: 500,
+    data: '25/06/2026',
+    dataTs: new Date('2026-06-25T14:38:00').getTime(),
+    comissao: 50.00,
+    status: 'pendente'
+  }];
+  localStorage.setItem('ec_supersim', JSON.stringify(seed));
+  return seed;
+}
+
+function salvarClientesSS(arr) {
+  localStorage.setItem('ec_supersim', JSON.stringify(arr));
+}
+
+// Cronômetro — calcula tempo decorrido desde indicação
+function calcTempo(tsMs) {
+  const diff = Date.now() - tsMs;
+  const dias = Math.floor(diff / 86400000);
+  const horas = Math.floor((diff % 86400000) / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (dias > 0) return `${dias}d ${horas}h`;
+  if (horas > 0) return `${horas}h ${mins}m`;
+  return `${mins}m`;
+}
+
+function renderSuperSim() {
+  const clientes = carregarClientesSS();
+  const tbody = document.getElementById('tbody-supersim');
+  if (!clientes.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--cinza);padding:24px;">Nenhum cliente cadastrado ainda</td></tr>';
+    document.getElementById('ss-total').textContent = '0';
+    document.getElementById('ss-pendente').textContent = '0';
+    document.getElementById('ss-valor-total').textContent = 'R$ 0,00';
+    document.getElementById('ss-pagas').textContent = '0';
+    return;
+  }
+
+  let pendentes = 0, pagas = 0, totalValor = 0;
+  tbody.innerHTML = clientes.map((c, i) => {
+    const isPago = c.status === 'pago';
+    if (isPago) pagas++; else { pendentes++; totalValor += c.comissao; }
+
+    const comissaoBadge = isPago
+      ? `<span class="badge badge-verde" style="font-size:11px;font-weight:700;">PG R$${c.comissao.toFixed(2)}</span>`
+      : `<span class="badge badge-vermelho" style="font-size:11px;font-weight:700;color:#ff5252;">R$${c.comissao.toFixed(2)}</span>`;
+
+    const cronometro = isPago
+      ? `<span style="color:#4caf50;font-size:11px;">✅ Pago</span>`
+      : `<span class="ss-timer" style="color:var(--vermelho);font-size:11px;font-family:'DM Mono',monospace;" data-ts="${c.dataTs}">⏱ ${calcTempo(c.dataTs)}</span>`;
+
+    const btnPagar = !isPago
+      ? `<button onclick="confirmarPagamentoSS(${c.id})" style="background:rgba(76,175,80,0.15);border:1px solid rgba(76,175,80,0.4);color:#4caf50;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:'Space Grotesk',sans-serif;">✅ Confirmar PG</button>`
+      : `<span style="color:rgba(255,255,255,0.2);font-size:11px;">—</span>`;
+
+    return `<tr>
+      <td>${i + 1}</td>
+      <td style="font-weight:600;">${c.nome}</td>
+      <td>${c.tel}</td>
+      <td style="font-family:'DM Mono',monospace;">${c.cpf}</td>
+      <td style="color:var(--cinza);font-size:12px;">${c.email}</td>
+      <td style="color:var(--dourado);">R$${c.valor.toFixed(2)}</td>
+      <td>${c.data}</td>
+      <td>${comissaoBadge}</td>
+      <td>${cronometro}</td>
+      <td>${btnPagar}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('ss-total').textContent = clientes.length;
+  document.getElementById('ss-pendente').textContent = pendentes;
+  document.getElementById('ss-valor-total').textContent = 'R$ ' + totalValor.toFixed(2).replace('.', ',');
+  document.getElementById('ss-pagas').textContent = pagas;
+}
+
+function adicionarClienteSS() {
+  const nome = document.getElementById('ss-nome').value.trim();
+  const tel = document.getElementById('ss-tel').value.trim();
+  const cpf = document.getElementById('ss-cpf').value.trim();
+  const email = document.getElementById('ss-email').value.trim() || '—';
+  const valor = parseFloat(document.getElementById('ss-valor').value) || 0;
+  const data = document.getElementById('ss-data').value.trim() || new Date().toLocaleDateString('pt-BR');
+  if (!nome || !cpf) { alert('Informe pelo menos nome e CPF.'); return; }
+  const clientes = carregarClientesSS();
+  const novoId = clientes.length ? Math.max(...clientes.map(c => c.id)) + 1 : 1;
+  clientes.push({ id: novoId, nome, tel, cpf, email, valor, data, dataTs: Date.now(), comissao: 50.00, status: 'pendente' });
+  salvarClientesSS(clientes);
+  renderSuperSim();
+  ['ss-nome','ss-tel','ss-cpf','ss-email','ss-valor','ss-data'].forEach(id => document.getElementById(id).value = '');
+  alert('Cliente cadastrado! ✅');
+}
+
+function confirmarPagamentoSS(id) {
+  if (!confirm('Confirmar recebimento da comissão de R$50,00?')) return;
+  const clientes = carregarClientesSS();
+  const c = clientes.find(x => x.id === id);
+  if (c) c.status = 'pago';
+  salvarClientesSS(clientes);
+  renderSuperSim();
+}
+
+function exportarSS() {
+  const clientes = carregarClientesSS();
+  let csv = 'Nome,Telefone,CPF,Email,Valor,Data,Comissao,Status\n';
+  clientes.forEach(c => {
+    csv += `"${c.nome}","${c.tel}","${c.cpf}","${c.email}",${c.valor},"${c.data}",${c.comissao},${c.status}\n`;
+  });
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'supersim_clientes.csv';
+  a.click();
+}
+
+// Atualiza cronômetros a cada minuto
+setInterval(() => {
+  document.querySelectorAll('.ss-timer').forEach(el => {
+    const ts = parseInt(el.dataset.ts);
+    el.textContent = '⏱ ' + calcTempo(ts);
+  });
+}, 60000);
+
+// Renderiza ao abrir aba Super Sim
+const _tab = tab;
+tab = function(id, el) {
+  _tab(id, el);
+  if (id === 'supersim') renderSuperSim();
+};
+
+
 
 // Dados da carteira — atualizados pela Gaia
 // Última atualização: 24/06/2026
