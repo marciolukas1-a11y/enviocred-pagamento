@@ -442,7 +442,10 @@ Após o pagamento, me manda o comprovante aqui! 😊💙</div>
 
     <!-- INVESTIMENTOS -->
     <div id="sec-investimentos" class="section">
-      <div class="section-title">📈 Carteira de Investimentos — Envio CRED</div>
+      <div class="section-title">📈 Carteira de Investimentos — Envio CRED
+        <span id="inv-cotacao-badge" style="font-size:12px;font-weight:400;margin-left:12px;color:var(--cinza);">⏳ Carregando cotações...</span>
+        <button onclick="atualizarCotacoes()" style="margin-left:12px;background:rgba(245,197,24,0.1);border:1px solid rgba(245,197,24,0.3);color:var(--dourado);padding:4px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🔄 Atualizar</button>
+      </div>
 
       <div class="cards-grid" style="margin-bottom:24px;">
         <div class="card" style="border-color:var(--dourado);">
@@ -985,6 +988,7 @@ const _tab = tab;
 tab = function(id, el) {
   _tab(id, el);
   if (id === 'supersim') renderSuperSim();
+  if (id === 'investimentos') atualizarCotacoes();
 };
 
 
@@ -1011,6 +1015,51 @@ function fmtBRL(v) {
   return 'R$ ' + v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
+// ── COTAÇÕES EM TEMPO REAL ──────────────────────────────────────
+const API_COTACOES = 'https://eva-server-production-3c09.up.railway.app/cotacoes';
+let _cotacoesCache = {};
+let _cotacoesAtualizando = false;
+
+async function atualizarCotacoes() {
+  if (!CARTEIRA.length) return;
+  if (_cotacoesAtualizando) return;
+  _cotacoesAtualizando = true;
+
+  const tickers = CARTEIRA.map(a => a.ticker).join(',');
+  const badge = document.getElementById('inv-cotacao-badge');
+  if (badge) { badge.textContent = '⏳ Atualizando...'; badge.style.color = 'var(--dourado)'; }
+
+  try {
+    const res = await fetch(`${API_COTACOES}?tickers=${tickers}`);
+    const data = await res.json();
+    if (data.cotacoes) {
+      _cotacoesCache = data.cotacoes;
+      // Atualiza cotação na CARTEIRA
+      CARTEIRA.forEach(a => {
+        const c = data.cotacoes[a.ticker];
+        if (c && c.preco) {
+          a.cotacao = c.preco;
+          a._variacao_pct = c.variacao_pct;
+          a._mercado = c.mercado;
+          a._atualizado = c.atualizado;
+        }
+      });
+      if (badge) {
+        const hora = data.gerado_em ? data.gerado_em.split(' ')[1] : '--:--';
+        badge.textContent = `✅ Ao vivo · ${hora}`;
+        badge.style.color = '#4caf50';
+      }
+      renderInvestimentos();
+    }
+  } catch(e) {
+    if (badge) { badge.textContent = '⚠️ Sem conexão'; badge.style.color = '#f44336'; }
+  }
+  _cotacoesAtualizando = false;
+}
+
+// Atualiza a cada 5 minutos
+setInterval(atualizarCotacoes, 5 * 60 * 1000);
+
 function renderInvestimentos() {
   if (!CARTEIRA.length) return;
 
@@ -1031,21 +1080,27 @@ function renderInvestimentos() {
     totalPatrimonio += total;
     totalDivMes += divMes;
 
-    // Próximo pagamento
     if (a.data_pgto) {
       const dp = new Date(a.data_pgto);
       if (!proxPgto || dp < proxPgto) { proxPgto = dp; proxPgtoTicker = a.ticker; }
     }
 
-    const var_pct = a.preco_medio > 0 ? (((a.cotacao - a.preco_medio) / a.preco_medio) * 100).toFixed(2) : '0.00';
+    // Usa variação real da API se disponível, senão calcula pelo preço médio
+    const var_pct = a._variacao_pct !== undefined
+      ? parseFloat(a._variacao_pct).toFixed(2)
+      : (a.preco_medio > 0 ? (((a.cotacao - a.preco_medio) / a.preco_medio) * 100).toFixed(2) : '0.00');
     const cor_var = parseFloat(var_pct) >= 0 ? '#4caf50' : '#f44336';
+    const seta = parseFloat(var_pct) >= 0 ? '▲' : '▼';
+    const mercadoBadge = a._mercado === 'aberto'
+      ? `<span style="font-size:9px;background:rgba(76,175,80,0.2);color:#4caf50;border-radius:4px;padding:1px 4px;margin-left:4px;">AO VIVO</span>`
+      : `<span style="font-size:9px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.4);border-radius:4px;padding:1px 4px;margin-left:4px;">FECHADO</span>`;
 
     tbody.innerHTML += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
       <td style="padding:10px 8px;font-weight:700;color:var(--dourado);">${a.ticker}</td>
       <td style="padding:10px 8px;color:rgba(255,255,255,0.7);font-size:12px;">${a.nome}</td>
       <td style="padding:10px 8px;text-align:right;">${a.cotas}</td>
       <td style="padding:10px 8px;text-align:right;">${fmtBRL(a.preco_medio)}</td>
-      <td style="padding:10px 8px;text-align:right;">${fmtBRL(a.cotacao)} <span style="font-size:11px;color:${cor_var}">(${var_pct}%)</span></td>
+      <td style="padding:10px 8px;text-align:right;">${fmtBRL(a.cotacao)}${mercadoBadge}<br><span style="font-size:11px;color:${cor_var}">${seta} ${var_pct}%</span></td>
       <td style="padding:10px 8px;text-align:right;font-weight:600;">${fmtBRL(total)}</td>
       <td style="padding:10px 8px;text-align:right;color:#4caf50;">${fmtBRL(a.div_cota)}</td>
       <td style="padding:10px 8px;text-align:right;color:#4caf50;font-weight:600;">${fmtBRL(divMes)}</td>
@@ -1055,7 +1110,6 @@ function renderInvestimentos() {
     </tr>`;
   });
 
-  // Cards de resumo
   document.getElementById('inv-patrimonio').textContent = fmtBRL(totalPatrimonio);
   document.getElementById('inv-patrimonio-delta').textContent = CARTEIRA.length + ' ativo(s) na carteira';
   document.getElementById('inv-dividendos-mes').textContent = fmtBRL(totalDivMes);
@@ -1066,7 +1120,6 @@ function renderInvestimentos() {
   const dyMedio = totalPatrimonio > 0 ? ((totalDivMes / totalPatrimonio) * 100).toFixed(2) : '0.00';
   document.getElementById('inv-dy-medio').textContent = dyMedio + '%';
 
-  // Histórico de dividendos
   const hist = JSON.parse(localStorage.getItem('ec_div_historico') || '[]');
   const hdiv = document.getElementById('inv-historico');
   if (hist.length) {
