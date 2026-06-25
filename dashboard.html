@@ -1030,11 +1030,11 @@ async function atualizarCotacoes() {
   if (badge) { badge.textContent = '⏳ Atualizando...'; badge.style.color = 'var(--dourado)'; }
 
   try {
-    const res = await fetch(`${API_COTACOES}?tickers=${tickers}`);
+    const res = await fetch(`${API_COTACOES}?tickers=${tickers}`, {cache: 'no-cache'});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data.cotacoes) {
       _cotacoesCache = data.cotacoes;
-      // Atualiza cotação na CARTEIRA
       CARTEIRA.forEach(a => {
         const c = data.cotacoes[a.ticker];
         if (c && c.preco) {
@@ -1052,6 +1052,7 @@ async function atualizarCotacoes() {
       renderInvestimentos();
     }
   } catch(e) {
+    console.error('[cotacoes]', e);
     if (badge) { badge.textContent = '⚠️ Sem conexão'; badge.style.color = '#f44336'; }
   }
   _cotacoesAtualizando = false;
