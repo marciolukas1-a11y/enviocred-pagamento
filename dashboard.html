@@ -367,12 +367,55 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
         <div class="card"><div class="card-label">FinanZero</div><div class="card-value gold">R$0</div><div class="card-delta">Cadastro pendente</div></div>
       </div>
       <div class="table-card">
-        <div class="table-header"><span class="table-title">Histórico de Comissões</span></div>
-        <table>
-          <thead><tr><th>Data</th><th>Plataforma</th><th>Cliente</th><th>Comissão</th></tr></thead>
-          <tbody><tr><td colspan="4" style="text-align:center;color:var(--cinza);padding:20px;">Nenhuma comissão registrada ainda</td></tr></tbody>
+        <div class="table-header">
+          <span class="table-title">💰 Comissões SuperSim</span>
+          <span style="font-size:11px;color:var(--cinza);">🔴 Aguardando &nbsp;|&nbsp; 🟢 Pago</span>
+        </div>
+        <table id="tbl-comissoes">
+          <thead>
+            <tr><th>Data</th><th>Cliente</th><th>Valor</th><th>Prazo</th><th>Status</th></tr>
+          </thead>
+          <tbody id="tbody-comissoes">
+            <tr><td colspan="5" style="text-align:center;color:var(--cinza);padding:20px;">Nenhuma comissão registrada ainda</td></tr>
+          </tbody>
         </table>
       </div>
+      <style>
+        .badge-ag  { background:#ff3b3b22;color:#ff3b3b;border:1px solid #ff3b3b;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px; }
+        .badge-pg  { background:#00e07622;color:#00e076;border:1px solid #00e076;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700; }
+        .badge-exp { background:#ff990022;color:#ff9900;border:1px solid #ff9900;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700; }
+        .val-ag    { color:#ff3b3b;font-weight:700;font-size:16px; }
+        .val-pg    { color:#00e076;font-weight:700;font-size:16px; }
+        .val-exp   { color:#ff9900;font-weight:700;font-size:16px; }
+        .crono     { font-size:11px;color:#ff3b3b;font-weight:600; }
+      </style>
+      <script>
+      (function(){
+        const API="https://eva-server-production-3c09.up.railway.app";
+        function crono(iso){
+          const d=new Date(iso)-new Date();
+          if(d<=0)return null;
+          const dd=Math.floor(d/86400000),hh=Math.floor((d%86400000)/3600000),mm=Math.floor((d%3600000)/60000);
+          return dd>0?dd+"d "+hh+"h":hh>0?hh+"h "+mm+"m":mm+"m";
+        }
+        function render(lista){
+          const tb=document.getElementById("tbody-comissoes");
+          if(!tb)return;
+          if(!lista||!lista.length){tb.innerHTML="<tr><td colspan='5' style='text-align:center;color:var(--cinza);padding:20px;'>Nenhuma comissão registrada ainda</td></tr>";return;}
+          tb.innerHTML=lista.map(c=>{
+            const pg=c.status==="pago";
+            const exp=!pg&&c.prazo_iso&&new Date(c.prazo_iso)<new Date();
+            const t=(!pg&&c.prazo_iso)?crono(c.prazo_iso):null;
+            const vc=pg?"val-pg":exp?"val-exp":"val-ag";
+            const badge=pg?'<span class="badge-pg">🟢 PG</span>':exp?'<span class="badge-exp">🔴 Não finalizado</span>':'<span class="badge-ag">🔴'+(t?" ⏱ "+t:" Aguardando")+'</span>';
+            return`<tr><td>${c.data||""}</td><td>${c.cliente||""}</td><td class="${vc}">R$${c.valor||50}</td><td class="crono">${c.prazo_display||""}</td><td>${badge}</td></tr>`;
+          }).join("");
+        }
+        async function load(){try{const r=await fetch(API+"/comissoes");if(r.ok){const d=await r.json();render(d.comissoes||[]);}}catch(e){}}
+        document.addEventListener("DOMContentLoaded",load);
+        setInterval(load,30000);
+      })();
+      </script>
     </div>
 
     <!-- LINKS -->
