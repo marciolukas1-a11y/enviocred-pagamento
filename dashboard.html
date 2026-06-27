@@ -921,16 +921,56 @@ function salvarClientesSS(arr) {
   localStorage.setItem('ec_supersim', JSON.stringify(arr));
 }
 
-// Cronômetro — calcula tempo decorrido desde indicação
-function calcTempo(tsMs) {
-  const diff = Date.now() - tsMs;
-  const dias = Math.floor(diff / 86400000);
-  const horas = Math.floor((diff % 86400000) / 3600000);
-  const mins = Math.floor((diff % 3600000) / 60000);
-  if (dias > 0) return `${dias}d ${horas}h`;
-  if (horas > 0) return `${horas}h ${mins}m`;
-  return `${mins}m`;
+// ── CRONÔMETRO REGRESSIVO 5H ─────────────────────────────────────────────────
+const PRAZO_MS = 5 * 60 * 60 * 1000; // 5 horas em ms
+
+// Retorna tempo RESTANTE no prazo de 5h (ou null se expirado)
+function calcRegressivo(tsMs) {
+  const restante = (tsMs + PRAZO_MS) - Date.now();
+  if (restante <= 0) return null; // expirado
+  const hh = Math.floor(restante / 3600000);
+  const mm = Math.floor((restante % 3600000) / 60000);
+  const ss = Math.floor((restante % 60000) / 1000);
+  return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
 }
+
+// Verifica se o prazo de 5h expirou
+function prazoExpirado(tsMs) {
+  return Date.now() > tsMs + PRAZO_MS;
+}
+
+// Auto-expirar: marca como não_finalizado quando cronômetro zerar
+function verificarExpirados() {
+  const clientes = carregarClientesSS();
+  let mudou = false;
+  clientes.forEach(c => {
+    if (c.status === 'pendente' && prazoExpirado(c.dataTs)) {
+      c.status = 'nao_finalizado';
+      mudou = true;
+    }
+  });
+  if (mudou) {
+    salvarClientesSS(clientes);
+    renderSuperSim();
+  }
+}
+
+// Atualizar cronômetros na tela a cada segundo
+function tickCronometros() {
+  verificarExpirados();
+  document.querySelectorAll('.ss-regressivo').forEach(el => {
+    const ts = parseInt(el.dataset.ts);
+    const tempo = calcRegressivo(ts);
+    if (tempo) {
+      el.textContent = '⏱ ' + tempo;
+      el.style.color = '#ff9800';
+    } else {
+      el.textContent = '⌛ Expirado';
+      el.style.color = '#ff3b3b';
+    }
+  });
+}
+setInterval(tickCronometros, 1000);
 
 function renderSuperSim() {
   const clientes = carregarClientesSS();
@@ -947,19 +987,38 @@ function renderSuperSim() {
   let pendentes = 0, pagas = 0, totalValor = 0;
   tbody.innerHTML = clientes.map((c, i) => {
     const isPago = c.status === 'pago';
-    if (isPago) pagas++; else { pendentes++; totalValor += c.comissao; }
+    if (isPago) pagas++; else if (isNaoFinalizado || expirado) { pendentes++; totalValor += c.comissao; } else { pendentes++; totalValor += c.comissao; }
 
-    const comissaoBadge = isPago
-      ? `<span class="badge badge-verde" style="font-size:11px;font-weight:700;">PG R$${c.comissao.toFixed(2)}</span>`
-      : `<span class="badge badge-vermelho" style="font-size:11px;font-weight:700;color:#ff5252;">R$${c.comissao.toFixed(2)}</span>`;
+    const isNaoFinalizado = c.status === 'nao_finalizado';
+    const expirado = !isPago && !isNaoFinalizado && prazoExpirado(c.dataTs);
+    const tempoRestante = (!isPago && !isNaoFinalizado) ? calcRegressivo(c.dataTs) : null;
 
-    const cronometro = isPago
-      ? `<span style="color:#4caf50;font-size:11px;">✅ Pago</span>`
-      : `<span class="ss-timer" style="color:var(--vermelho);font-size:11px;font-family:'DM Mono',monospace;" data-ts="${c.dataTs}">⏱ ${calcTempo(c.dataTs)}</span>`;
+    // Badge do valor — VERDE se pago, VERMELHO se não finalizado/expirado, LARANJA se pendente com timer
+    let comissaoBadge;
+    if (isPago) {
+      comissaoBadge = `<span style="background:rgba(76,175,80,.15);border:1px solid #4caf50;color:#4caf50;border-radius:6px;padding:4px 12px;font-size:13px;font-weight:800;">💚 R$${c.comissao.toFixed(2)}</span>`;
+    } else if (isNaoFinalizado || expirado) {
+      comissaoBadge = `<span style="background:rgba(255,59,59,.15);border:1px solid #ff3b3b;color:#ff3b3b;border-radius:6px;padding:4px 12px;font-size:13px;font-weight:800;">🔴 Não finalizado · R$${c.comissao.toFixed(2)}</span>`;
+    } else {
+      comissaoBadge = `<span style="background:rgba(255,152,0,.15);border:1px solid #ff9800;color:#ff9800;border-radius:6px;padding:4px 12px;font-size:13px;font-weight:800;">⏳ R$${c.comissao.toFixed(2)}</span>`;
+    }
 
-    const btnPagar = !isPago
+    // Cronômetro regressivo
+    let cronometro;
+    if (isPago) {
+      cronometro = `<span style="color:#4caf50;font-size:11px;font-weight:600;">✅ Comissão paga</span>`;
+    } else if (isNaoFinalizado) {
+      cronometro = `<span style="color:#ff3b3b;font-size:11px;font-weight:600;">❌ Prazo encerrado</span>`;
+    } else if (tempoRestante) {
+      cronometro = `<span class="ss-regressivo" data-ts="${c.dataTs}" style="color:#ff9800;font-size:12px;font-weight:700;font-family:'DM Mono',monospace;">⏱ ${tempoRestante}</span>`;
+    } else {
+      cronometro = `<span style="color:#ff3b3b;font-size:11px;">⌛ Expirado</span>`;
+    }
+
+    const btnPagar = (!isPago && !isNaoFinalizado)
       ? `<button onclick="confirmarPagamentoSS(${c.id})" style="background:rgba(76,175,80,0.15);border:1px solid rgba(76,175,80,0.4);color:#4caf50;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:'Space Grotesk',sans-serif;">✅ Confirmar PG</button>`
-      : `<span style="color:rgba(255,255,255,0.2);font-size:11px;">—</span>`;
+      : isPago ? `<span style="color:rgba(255,255,255,0.2);font-size:11px;">—</span>`
+      : `<button onclick="confirmarPagamentoSS(${c.id})" style="background:rgba(255,59,59,0.1);border:1px solid rgba(255,59,59,0.4);color:#ff3b3b;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;">⚠️ Reg. tardio</button>`;
 
     return `<tr>
       <td>${i + 1}</td>
