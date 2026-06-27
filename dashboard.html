@@ -1037,8 +1037,8 @@ tab = function(id, el) {
 
 
 
-// Dados da carteira — atualizados pela Gaia
-// Última atualização: 24/06/2026
+// Dados da carteira — Márcio Ribeiro | ENVIO CRED
+// Última atualização: 27/06/2026
 const CARTEIRA = [
   {
     ticker: 'KNCR11',
@@ -1049,6 +1049,46 @@ const CARTEIRA = [
     div_cota: 1.10,
     data_com: '01/07/2026',
     data_pgto: '10/07/2026'
+  },
+  {
+    ticker: 'MXRF11',
+    nome: 'Maxi Renda FII',
+    cotas: 0,
+    preco_medio: 0,
+    cotacao: 9.74,
+    div_cota: 0.10,
+    data_com: '20/07/2026',
+    data_pgto: '25/07/2026'
+  },
+  {
+    ticker: 'HGLG11',
+    nome: 'CSHG Logística FII',
+    cotas: 0,
+    preco_medio: 0,
+    cotacao: 150.30,
+    div_cota: 1.10,
+    data_com: '18/07/2026',
+    data_pgto: '25/07/2026'
+  },
+  {
+    ticker: 'XPML11',
+    nome: 'XP Malls FII',
+    cotas: 0,
+    preco_medio: 0,
+    cotacao: 0,
+    div_cota: 0.95,
+    data_com: '22/07/2026',
+    data_pgto: '29/07/2026'
+  },
+  {
+    ticker: 'ITUB4',
+    nome: 'Itaú Unibanco PN',
+    cotas: 0,
+    preco_medio: 0,
+    cotacao: 42.24,
+    div_cota: 0.22,
+    data_com: '15/07/2026',
+    data_pgto: '22/07/2026'
   }
 ];
 
@@ -1074,32 +1114,61 @@ async function atualizarCotacoes(forcar) {
   if (badge) { badge.textContent = '⏳ Atualizando...'; badge.style.color = 'var(--dourado)'; }
 
   const url = `${API_COTACOES}?tickers=${tickers}&_t=${Date.now()}`;
-  
+
+  async function aplicarCotacoes(cotacoes, fonte) {
+    _cotacoesCache = cotacoes;
+    CARTEIRA.forEach(a => {
+      const c = cotacoes[a.ticker];
+      if (c && c.preco) {
+        a.cotacao = c.preco;
+        a._variacao_pct = c.variacao_pct || 0;
+        a._mercado = c.mercado || 'fechado';
+        a._atualizado = c.atualizado || '--';
+      }
+    });
+    if (badge) {
+      const agora = new Date().toLocaleTimeString('pt-BR', {timeZone:'America/Sao_Paulo', hour:'2-digit', minute:'2-digit'});
+      badge.textContent = `✅ Ao vivo · ${agora} (${fonte})`;
+      badge.style.color = '#4caf50';
+    }
+    renderInvestimentos();
+  }
+
   try {
     const res = await fetch(url, {mode:'cors', cache:'no-store'});
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    if (data.cotacoes) {
-      _cotacoesCache = data.cotacoes;
-      CARTEIRA.forEach(a => {
-        const c = data.cotacoes[a.ticker];
-        if (c && c.preco) {
-          a.cotacao = c.preco;
-          a._variacao_pct = c.variacao_pct;
-          a._mercado = c.mercado;
-          a._atualizado = c.atualizado;
-        }
-      });
-      if (badge) {
-        const hora = data.gerado_em ? data.gerado_em.split(' ')[1] : '--:--';
-        badge.textContent = `✅ Ao vivo · ${hora}`;
-        badge.style.color = '#4caf50';
-      }
-      renderInvestimentos();
+    if (data.cotacoes && Object.keys(data.cotacoes).length > 0) {
+      await aplicarCotacoes(data.cotacoes, 'Yahoo Finance');
+    } else {
+      throw new Error('Sem cotacoes');
     }
   } catch(e) {
-    console.error('[cotacoes]', e.message);
-    if (badge) { badge.textContent = '⚠️ ' + e.message; badge.style.color = '#f44336'; }
+    console.warn('[cotacoes principal]', e.message, '- tentando AwesomeAPI...');
+    // Fallback: AwesomeAPI para FIIs brasileiros
+    try {
+      const tks = tickers.split(',').map(t => t + '-BRL').join(',');
+      const res2 = await fetch(`https://brapi.dev/api/quote/${tickers}?token=anonymous`, {cache:'no-store'});
+      const d2 = await res2.json();
+      if (d2.results && d2.results.length > 0) {
+        const cotacoesFallback = {};
+        d2.results.forEach(r => {
+          cotacoesFallback[r.symbol.replace('.SA','')] = {
+            preco: r.regularMarketPrice,
+            variacao_pct: r.regularMarketChangePercent || 0,
+            mercado: 'fechado',
+            atualizado: new Date().toLocaleTimeString('pt-BR')
+          };
+        });
+        await aplicarCotacoes(cotacoesFallback, 'brapi.dev');
+      } else {
+        throw new Error('brapi sem dados');
+      }
+    } catch(e2) {
+      console.error('[cotacoes fallback]', e2.message);
+      if (badge) { badge.textContent = '⚠️ Mercado fechado — cotações do último pregão'; badge.style.color = '#f5c518'; }
+      renderInvestimentos();
+    }
   }
   _cotacoesAtualizando = false;
 }
